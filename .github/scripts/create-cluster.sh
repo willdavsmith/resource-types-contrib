@@ -246,4 +246,31 @@ echo "Restarting Radius dynamic-rp deployment to pick up new permissions..."
 kubectl rollout restart deployment dynamic-rp -n radius-system
 kubectl rollout status deployment dynamic-rp -n radius-system --timeout=120s
 
+echo "Configuring RBAC for Radius dynamic-rp service account (Gateway API support)..."
+cat <<'EOF' | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: radius-gateway-api-manager
+rules:
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways", "httproutes", "tlsroutes", "tcproutes", "udproutes", "grpcroutes", "referencegrants"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+EOF
+
+cat <<'EOF' | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: radius-gateway-api-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: radius-gateway-api-manager
+subjects:
+- kind: ServiceAccount
+  name: dynamic-rp
+  namespace: radius-system
+EOF
+
 echo "✅ Radius installation completed successfully"
