@@ -181,17 +181,29 @@ if [[ "${AZURE_WORKLOAD_IDENTITY_ENABLED}" == "true" ]]; then
 fi
 
 echo "Installing Radius on Kubernetes..."
-if [[ "${AZURE_WORKLOAD_IDENTITY_ENABLED}" == "true" ]]; then
-  rad install kubernetes \
-      --set rp.publicEndpointOverride=localhost:8081 \
-      --skip-contour-install \
-      --set dashboard.enabled=false \
-      --set global.azureWorkloadIdentity.enabled=true
-else
-  rad install kubernetes \
-      --set rp.publicEndpointOverride=localhost:8081 \
-      --skip-contour-install \
+install_radius() {
+  local reinstall_flag="${1:-}"
+  local args=(
+      install kubernetes
+      --set rp.publicEndpointOverride=localhost:8081
+      --skip-contour-install
       --set dashboard.enabled=false
+  )
+
+  if [[ -n "$reinstall_flag" ]]; then
+      args+=("$reinstall_flag")
+  fi
+
+  if [[ "${AZURE_WORKLOAD_IDENTITY_ENABLED}" == "true" ]]; then
+      args+=(--set global.azureWorkloadIdentity.enabled=true)
+  fi
+
+  rad "${args[@]}"
+}
+
+if ! install_radius; then
+  echo "Radius install did not complete on the first attempt. Retrying with --reinstall..."
+  install_radius --reinstall
 fi
 
 echo "Installing Dapr on Kubernetes..."
